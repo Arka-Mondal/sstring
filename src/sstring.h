@@ -24,7 +24,7 @@ typedef struct {
 
 typedef char * sstring;
 
-#define is_sstring(S) (((S) - sizeof(_sstring_struct))->magic == SSTR_MAGIC)
+#define is_sstring(S) (((_sstring_struct *)((S) - sizeof(_sstring_struct)))->magic == SSTR_MAGIC)
 
 sstring sstring_new(void);
 sstring sstring_from(const char *str);
