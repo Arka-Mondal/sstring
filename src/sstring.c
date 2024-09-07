@@ -16,14 +16,41 @@ static size_t next_power_of_2(size_t n)
   n |= n >> 4;
   n |= n >> 8;
   n |= n >> 16;
+  n |= n >> 32;
 
   return ++n;
+}
+
+static void * sstring_resize_buffer(_sstring_struct *sstr_strct, size_t newcap)
+{
+  if (newcap <= sstr_strct->capacity)
+    newcap = SSTR_MAX_CAP;
+
+  return realloc(sstr_strct, sizeof(_sstring_struct) + newcap * sizeof(char));
+}
+
+sstring sstring_new(void)
+{
+  _sstring_struct *sstr;
+
+  sstr = malloc(sizeof(_sstring_struct) + SSTR_INIT_CAP * sizeof(char));
+  if (sstr == NULL)
+    return NULL;
+
+  sstr->length = 0;
+  sstr->size = 1;
+  sstr->capacity = SSTR_INIT_CAP;
+  sstr->magic = SSTR_MAGIC;
+  sstr->buf = (char *) sstr + sizeof(_sstring_struct);
+  sstr->buf[0] = '\0';
+
+  return sstr->buf;
 }
 
 sstring sstring_from(const char *str)
 {
   size_t size, capacity;
-  _sstring_struct * sstr;
+  _sstring_struct *sstr;
 
   size = strlen(str) + 1;
   capacity = next_power_of_2(size);
@@ -35,6 +62,7 @@ sstring sstring_from(const char *str)
   sstr->length = size - 1;
   sstr->size = size;
   sstr->capacity = capacity;
+  sstr->magic = SSTR_MAGIC;
   sstr->buf = (char *) sstr + sizeof(_sstring_struct);
   strcpy(sstr->buf, str);
 
@@ -53,15 +81,22 @@ int sstring_destroy(sstring *sstr)
 int sstring_sstrpush(sstring *sstr1, const sstring sstr2)
 {
   size_t newcap;
-  _sstring_struct * sstr_strct1, * sstr_strct2;
+  _sstring_struct *sstr_strct1, *sstr_strct2;
+
+  if (sstr1 == NULL || *sstr1 == NULL || sstr2 == NULL)
+    return -1;
 
   sstr_strct1 = (_sstring_struct *) (*sstr1 - sizeof(_sstring_struct));
   sstr_strct2 = (_sstring_struct *) (sstr2 - sizeof(_sstring_struct));
 
+  if (sstr_strct1->magic != SSTR_MAGIC || sstr_strct2->magic != SSTR_MAGIC)
+    return -1;
+
   if (sstr_strct1->capacity < (sstr_strct1->size + sstr_strct2->length))
   {
     newcap = next_power_of_2(sstr_strct1->size + sstr_strct2->length);
-    sstr_strct1 = realloc(sstr_strct1, sizeof(_sstring_struct) + newcap * sizeof(char));
+    // sstr_strct1 = realloc(sstr_strct1, sizeof(_sstring_struct) + newcap * sizeof(char));
+    sstr_strct1 = sstring_resize_buffer(sstr_strct1, newcap);
     if (sstr_strct1 == NULL)
       return -1;
 
@@ -82,15 +117,19 @@ int sstring_sstrpush(sstring *sstr1, const sstring sstr2)
 int sstring_cstrpush(sstring *sstr, const char *cstr)
 {
   size_t cstr_len, newcap;
-  _sstring_struct * sstr_strct;
+  _sstring_struct *sstr_strct;
 
-  sstr_strct = (_sstring_struct *) (*sstr - sizeof(_sstring_struct));
+  if ((sstr == NULL) || (*sstr == NULL) || (cstr == NULL) ||
+    ((sstr_strct = (_sstring_struct *) (*sstr - sizeof(_sstring_struct)), sstr_strct->magic) != SSTR_MAGIC))
+    return -1;
+
   cstr_len = strlen(cstr);
 
   if (sstr_strct->capacity < sstr_strct->size + cstr_len)
   {
     newcap = next_power_of_2(sstr_strct->size + cstr_len);
-    sstr_strct = realloc(sstr_strct, sizeof(_sstring_struct) + newcap * sizeof(char));
+    // sstr_strct = realloc(sstr_strct, sizeof(_sstring_struct) + newcap * sizeof(char));
+    sstr_strct = sstring_resize_buffer(sstr_strct, newcap);
     if (sstr_strct == NULL)
       return -1;
 
@@ -105,4 +144,46 @@ int sstring_cstrpush(sstring *sstr, const char *cstr)
   sstr_strct->size += cstr_len;
 
   return 0;
+}
+
+int sstring_push(sstring *sstr, char ch)
+{
+  size_t newcap;
+  _sstring_struct *sstr_strct;
+
+  if ((sstr == NULL) || (*sstr == NULL) ||
+    ((sstr_strct = (_sstring_struct *) (*sstr - sizeof(_sstring_struct)), sstr_strct->magic) != SSTR_MAGIC))
+    return -1;
+
+  if (sstr_strct->capacity < sstr_strct->size + 1)
+  {
+    newcap = next_power_of_2(sstr_strct->size + 1);
+    // sstr_strct = realloc(sstr_strct, sizeof(_sstring_struct) + newcap * sizeof(char));
+    sstr_strct = sstring_resize_buffer(sstr_strct, newcap);
+    if (sstr_strct == NULL)
+      return -1;
+
+    sstr_strct->capacity = newcap;
+    sstr_strct->buf = (char *) sstr_strct + sizeof(_sstring_struct);
+    *sstr = sstr_strct->buf;
+  }
+
+  sstr_strct->buf[sstr_strct->length] = ch;
+  sstr_strct->buf[sstr_strct->size] = '\0';
+
+  sstr_strct->length++;
+  sstr_strct->size++;
+
+  return 0;
+}
+
+size_t sstring_length(sstring sstr)
+{
+  _sstring_struct *sstr_strct;
+
+  if ((sstr == NULL) ||
+    ((sstr_strct = (_sstring_struct *) (sstr - sizeof(_sstring_struct)), sstr_strct->magic) != SSTR_MAGIC))
+    return 0;
+
+  return sstr_strct->length;
 }
