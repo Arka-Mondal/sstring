@@ -25,15 +25,19 @@ typedef struct {
 typedef char * sstring;
 
 #define is_sstring(S) (((_sstring_struct *)((S) - sizeof(_sstring_struct)))->magic == SSTR_MAGIC)
+#define sstring_slice(S, T, E) sstring_slice_with_step((S), (T), (E), 1)
 
 sstring sstring_new(void);
+sstring sstring_clone(sstring sstr);
 sstring sstring_from(const char *str);
+int sstring_clear(sstring sstr);
 int sstring_destroy(sstring *sstr);
 
 int sstring_sstrpush(sstring *sstr1, const sstring sstr2);
 int sstring_cstrpush(sstring *sstr, const char *cstr);
 
 int sstring_push(sstring *sstr, char ch);
+sstring sstring_slice_with_step(sstring sstr, size_t start, size_t end, size_t step);
 
 size_t sstring_length(sstring sstr);
 

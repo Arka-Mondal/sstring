@@ -187,3 +187,49 @@ size_t sstring_length(sstring sstr)
 
   return sstr_strct->length;
 }
+
+sstring sstring_slice_with_step(sstring sstr, size_t start, size_t end, size_t step)
+{
+  size_t slice_limit;
+  _sstring_struct *sstr_strct;
+  sstring nstr;
+
+  if ((sstr == NULL)
+    || ((sstr_strct = (_sstring_struct *) (sstr - sizeof(_sstring_struct)), sstr_strct->magic) != SSTR_MAGIC))
+    return NULL;
+
+  nstr = sstring_new();
+  if (nstr == NULL)
+    return NULL;
+
+  slice_limit = (end < sstr_strct->length) ? end : sstr_strct->length;
+
+  for (size_t k = start; k < slice_limit; k += step)
+    if (sstring_push(&nstr, sstr_strct->buf[k]) == -1)
+      break;
+
+  return nstr;
+}
+
+sstring sstring_clone(sstring sstr)
+{
+  if (sstr == NULL)
+    return NULL;
+
+  return sstring_slice(sstr, 0, sstring_length(sstr));
+}
+
+int sstring_clear(sstring sstr)
+{
+  _sstring_struct *sstr_strct;
+
+  if ((sstr == NULL)
+    || ((sstr_strct = (_sstring_struct *) (sstr - sizeof(_sstring_struct)), sstr_strct->magic) != SSTR_MAGIC))
+    return -1;
+
+  sstr_strct->length = 0;
+  sstr_strct->size = 0;
+
+
+  return 0;
+}
